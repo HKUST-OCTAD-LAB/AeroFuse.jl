@@ -53,6 +53,15 @@ function naca4_coordinates(digits :: NTuple{4, <: Real}, n :: Integer, sharp_TE 
     end
     coords = [ [x_upper y_upper][end:-1:2,:];
                 x_lower y_lower             ]
+
+    # Calculate squared distance between adjacent points
+    dists = vec(sum(abs2, diff(coords, dims=1), dims=2))
+
+    # Keep the first point, and any subsequent point that is far enough away (> 1e-12)
+    keep_indices = [true; dists .> 1e-12]
+
+    # Filter out duplicate points
+    return coords[keep_indices, :]
 end
 
 """
