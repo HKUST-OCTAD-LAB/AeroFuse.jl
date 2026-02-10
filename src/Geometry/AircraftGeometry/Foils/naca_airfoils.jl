@@ -46,6 +46,10 @@ function naca4_coordinates(digits :: NTuple{4, <: Real}, n :: Integer, sharp_TE 
         # Lower surface
         x_lower = @. xs + thickness * sin(grads)
         y_lower = @. camber - thickness * cos(grads)
+
+        # Clamp x-coordinates to be at least 0.0 to prevent BoundsError in interpolation
+        x_upper = max.(0.0, x_upper)
+        x_lower = max.(0.0, x_lower)
     end
     coords = [ [x_upper y_upper][end:-1:2,:];
                 x_lower y_lower             ]
