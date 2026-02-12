@@ -12,6 +12,15 @@ naca4_camberline(pos, cam, xc) = ifelse(
 
 naca4_gradient(pos, cam, xc) = atan(2 * cam / (ifelse(xc < pos, pos^2, (1 - pos)^2)) * (pos - xc))
 
+function _enforce_strictly_increasing!(xs)
+    @inbounds for i in 2:length(xs)
+        if xs[i] <= xs[i - 1]
+            xs[i] = nextfloat(xs[i - 1])
+        end
+    end
+    xs
+end
+
 """
     naca4_coordinates(digits :: NTuple{4, <: Real}, n :: Integer, sharp_TE :: Bool)
 
@@ -47,21 +56,16 @@ function naca4_coordinates(digits :: NTuple{4, <: Real}, n :: Integer, sharp_TE 
         x_lower = @. xs + thickness * sin(grads)
         y_lower = @. camber - thickness * cos(grads)
 
-        # Clamp x-coordinates to be at least 0.0 to prevent BoundsError in interpolation
-        x_upper = max.(0.0, x_upper)
-        x_lower = max.(0.0, x_lower)
+        # For cambered foils, finite-thickness offset can create non-monotone x near
+        # the LE/TE. Downstream interpolation assumes each surface is
+        # strictly increasing in x
+        x_upper = clamp.(x_upper, 0.0, 1.0)
+        x_lower = clamp.(x_lower, 0.0, 1.0)
+        _enforce_strictly_increasing!(x_upper)
+        _enforce_strictly_increasing!(x_lower)
     end
     coords = [ [x_upper y_upper][end:-1:2,:];
                 x_lower y_lower             ]
-
-    # Calculate squared distance between adjacent points
-    dists = vec(sum(abs2, diff(coords, dims=1), dims=2))
-
-    # Keep the first point, and any subsequent point that is far enough away (> 1e-12)
-    keep_indices = [true; dists .> 1e-12]
-
-    # Filter out duplicate points
-    return coords[keep_indices, :]
 end
 
 """
